@@ -1,6 +1,6 @@
 import React from "react";
 import { useMsal } from "@azure/msal-react";
-import { loginRequest } from "../authConfig";
+import { scopeBase } from "../authConfig";
 import DropdownButton from "react-bootstrap/DropdownButton";
 import Dropdown from "react-bootstrap/Dropdown";
 
@@ -12,11 +12,11 @@ export const SignInButton = () => {
 
     const handleLogin = (loginType) => {
         if (loginType === "popup") {
-            instance.loginPopup(loginRequest).catch(e => {
+            instance.loginPopup(scopeBase).catch(e => {
                 console.log(e);
             });
         } else if (loginType === "redirect") {
-            instance.loginRedirect(loginRequest).catch(e => {
+            instance.loginRedirect(scopeBase).catch(e => {
                 console.log(e);
             });
         }
