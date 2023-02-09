@@ -4,6 +4,7 @@ import { scopeBase, workspaceId, reportId, powerBiApiUrl, datasetId } from '../a
 import { PowerBIEmbed } from 'powerbi-client-react';
 import { useMsal } from '@azure/msal-react';
 import { styles } from "../styles/pbi.css";
+import { render } from "react-dom";
 
 const powerbi = new service.Service(factories.hpmFactory, factories.wpmpFactory, factories.routerFactory);
 
@@ -12,7 +13,6 @@ export default function ReportEmbed({accessToken, embedUrl}) {
     let reportRef;
 
     const { instance, accounts } = useMsal();
-    const [loading, setLoading] = useState(true);
 
     const loginRequest = {
         scopes: scopeBase,
@@ -66,16 +66,21 @@ export default function ReportEmbed({accessToken, embedUrl}) {
 
     reportRef = React.createRef();
 
+    const loading = (
+        <div
+            id="reportContainer"
+            ref={reportRef} >
+            Loading the report...
+        </div>
+    );
+
 
     useEffect(() => {
         console.log("Rendering ...");
-
-        if (reportRef !== null) {
-            reportContainer = reportRef['current'];
-        }
-
+        renderReport();
         // resize PBI iframe
         var iframes = document.querySelectorAll("iframe");
+
 
         try {
             for (var i = 0; i < iframes.length; i++) {
@@ -91,7 +96,8 @@ export default function ReportEmbed({accessToken, embedUrl}) {
 
     const renderReport = () => {
 
-        let reportContainer = document.getElementById("reportContainer")
+        let reportContainer = document.getElementById("reportContainer");
+        console.log(reportContainer);
         const report = powerbi.embed(reportContainer, embedConfig);
 
         // Clear any other loaded handler events
@@ -110,6 +116,17 @@ export default function ReportEmbed({accessToken, embedUrl}) {
             console.log("Report render successful");
         });
 
+        report.off("dataSelected");
+
+        // Triggers when a content is successfully embedded in UI
+        report.on("dataSelected", function (e) {
+            console.log(e);
+
+            let metricSelected = e.detail.dataPoints[0].values[1].value;
+            console.log(metricSelected);
+        });
+        
+
         // Clear any other error handler event
         report.off("error");
 
@@ -121,22 +138,11 @@ export default function ReportEmbed({accessToken, embedUrl}) {
             console.error(errorMsg);
         });
 
-        return report;
+        return loading;
     }
 
     return (
-        <div id="reportContainer">
-            {!loading ?
-
-                
-                renderReport()
-            
-                :
-                
-                renderReport()
-                
-            }
-        </div>
+        loading
     )
 }
 
