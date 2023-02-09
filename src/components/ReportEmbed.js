@@ -2,13 +2,13 @@ import React, {useEffect, useState } from "react";
 import { service, factories, models, IEmbedConfiguration } from 'powerbi-client';
 import { scopeBase, workspaceId, reportId, powerBiApiUrl, datasetId } from '../authConfig';
 import { PowerBIEmbed } from 'powerbi-client-react';
-import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
+import { useMsal } from '@azure/msal-react';
+import { styles } from "../styles/pbi.css";
 
 const powerbi = new service.Service(factories.hpmFactory, factories.wpmpFactory, factories.routerFactory);
 
 export default function ReportEmbed({accessToken, embedUrl}) {
 
-    let reportContainer;
     let reportRef;
 
     const { instance, accounts } = useMsal();
@@ -18,6 +18,16 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         scopes: scopeBase,
         account: accounts[0]
     };
+
+    function resizeIFrameToFitContent(iFrame) {
+
+        var reportContainer = document.getElementById('reportContainer');
+        console.log(window.innerWidth);
+        console.log(reportContainer.clientWidth);
+
+        iFrame.width = window.innerWidth;
+        iFrame.height = reportContainer.clientHeight;
+    }
 
     const getNewAccessToken = () => {
         // Silently acquires an access token which is then attached to a request for MS Graph data
@@ -38,6 +48,7 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         eventHooks: {
             accessTokenProvider: getNewAccessToken
         },
+        pageView : "fitToWidth",
 		settings: {
 			panes: {
 				filters: {
@@ -45,6 +56,10 @@ export default function ReportEmbed({accessToken, embedUrl}) {
 					visible: false
 				}
 			},
+            layoutType: models.LayoutType.Custom,
+            customLayout: {
+               displayOption: models.DisplayOption.FitToWidth
+            }, 
 			background: models.BackgroundType.Transparent,
 		}
 	});
@@ -58,48 +73,93 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         if (reportRef !== null) {
             reportContainer = reportRef['current'];
         }
+
+        // resize PBI iframe
+        var iframes = document.querySelectorAll("iframe");
+
+        try {
+            for (var i = 0; i < iframes.length; i++) {
+                console.log(iframes[i]);
+                resizeIFrameToFitContent(iframes[i]);
+                iframes[i].attributes.removeNamedItem("style");
+            }
+        } catch(err) {
+            console.log(err);
+        }
+
     }, []);
 
+    const renderReport = () => {
+
+        let reportContainer = document.getElementById("reportContainer")
+        const report = powerbi.embed(reportContainer, embedConfig);
+
+        // Clear any other loaded handler events
+        report.off("loaded");
+
+        // Triggers when a content schema is successfully loaded
+        report.on("loaded", function () {
+            console.log("Report load successful");
+        });
+
+        // Clear any other rendered handler events
+        report.off("rendered");
+
+        // Triggers when a content is successfully embedded in UI
+        report.on("rendered", function () {
+            console.log("Report render successful");
+        });
+
+        // Clear any other error handler event
+        report.off("error");
+
+        // Below patch of code is for handling errors that occur during embedding
+        report.on("error", function (event) {
+            const errorMsg = event.detail;
+
+            // Use errorMsg variable to log error in any destination of choice
+            console.error(errorMsg);
+        });
+
+        return report;
+    }
+
     return (
-        <div>
+        <div id="reportContainer">
             {!loading ?
-                <PowerBIEmbed
-                embedConfig = {embedConfig}
+
+                
+                renderReport()
             
-                eventHandlers = { 
-                    new Map([
-                        ['loaded', function () {console.log('Report loaded');}],
-                        ['rendered', function () {console.log('Report rendered');}],
-                        ['error', function (event) {console.log(event.detail);}]
-                    ])
-                }
-                    
-                cssClassName = { "report-style-class" }
-            
-                getEmbeddedComponent = { (embeddedReport) => {
-                    this.report = embeddedReport;
-                }}
-            />
                 :
-                <PowerBIEmbed
-                embedConfig = {embedConfig}
-            
-                eventHandlers = { 
-                    new Map([
-                        ['loaded', function () {console.log('Report loaded');}],
-                        ['rendered', function () {console.log('Report rendered');}],
-                        ['error', function (event) {console.log(event.detail);}]
-                    ])
-                }
-                    
-                cssClassName = { "report-style-class" }
-            
-                getEmbeddedComponent = { (embeddedReport) => {
-                    window.report = embeddedReport;
-                }}
-            />
+                
+                renderReport()
                 
             }
         </div>
     )
 }
+
+/*
+<PowerBIEmbed
+                    embedConfig = {embedConfig}
+                
+                    eventHandlers = { 
+                        new Map([
+                            ['loaded', function () {console.log('Report loaded');}],
+                            ['rendered', function () {console.log('Report rendered');}],
+                            ['error', function (event) {console.log(event.detail);}],
+                            ['dataSelected', function (event) {
+                                let data = event.detail;
+                                console.log("Event - dataSelected:\n", data);
+                            }]
+                        ])
+                    }
+                        
+                    cssClassName = { "report-style-class" }
+                
+                    getEmbeddedComponent = { (embeddedReport) => {
+                        window.report = embeddedReport;
+                    }}
+                />
+*/

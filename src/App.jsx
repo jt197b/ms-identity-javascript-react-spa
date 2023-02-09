@@ -4,9 +4,6 @@ import { PageLayout } from './components/PageLayout';
 import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import Button from 'react-bootstrap/Button';
 import { scopeBase, workspaceId, reportId, powerBiApiUrl, datasetId } from './authConfig';
-import { callMsGraph } from './graph';
-import { ProfileData } from './components/ProfileData';
-import { MsalContext } from "@azure/msal-react";
 import { useIsAuthenticated } from "@azure/msal-react";
 import { useEffect } from 'react';
 import ReportEmbed from './components/ReportEmbed';
@@ -16,25 +13,20 @@ import ReportEmbed from './components/ReportEmbed';
  */
 const ProfileContent = () => {
     const { instance, accounts } = useMsal();
-    const [graphData, setGraphData] = useState(null);
     const reportRef = useRef(null);
-
     const [error, setError] = useState("");
 
     // msal
     const [accessToken, setAccessToken] = useState(null);
-    const [username, setUsername] = useState("");
     const isAuthenticated = useIsAuthenticated(false);
 
     // pbi
     const [embedUrl, setEmbedUrl] = useState("https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&groupId=a81e25a2-2ee6-40bb-a4ac-9a2cb4538f01&w=2");
-    const [embedToken, setEmbedToken] = useState("");
 
     const loginRequest = {
         scopes: scopeBase,
         account: accounts[0]
     };
-
 
     function authenticate() {
 
@@ -44,7 +36,6 @@ const ProfileContent = () => {
         instance
             .acquireTokenSilent(loginRequest)
             .then((resp) => {
-                console.log(resp.accessToken);
                 setAccessToken(resp.accessToken);
                 return resp.accessToken;
                 //let reportData = getEmbedUrl();
@@ -95,16 +86,15 @@ const ProfileContent = () => {
             }),
         }).then(resp => 
             {
-                console.log(resp);
                 return resp.json();
             }).then(function(data) {
-              // `data` is the parsed version of the JSON returned from the above endpoint.
-              console.log(data);
+                console.log(data);
             });
     }
 
     useEffect(() => {
-        console.log(accessToken)
+        console.log(accessToken);
+        console.log(embedUrl);
     },[accessToken]);
 
     return (
@@ -119,11 +109,6 @@ const ProfileContent = () => {
                 </div>
             ) : (
                 <div>
-                    <p>Access Token: </p>
-                    {accessToken}
-
-                    <p>Embed URL: </p>
-                    {embedUrl}
                     <ReportEmbed
                         accessToken={accessToken}
                         embedUrl={embedUrl}
