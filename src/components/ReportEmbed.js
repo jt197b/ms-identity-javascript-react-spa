@@ -1,18 +1,16 @@
 import React, {useEffect, useState } from "react";
-import { service, factories, models, IEmbedConfiguration } from 'powerbi-client';
-import { scopeBase, workspaceId, reportId, powerBiApiUrl, datasetId } from '../authConfig';
-import { PowerBIEmbed } from 'powerbi-client-react';
+import { service, factories, models } from 'powerbi-client';
+import { scopeBase, reportId, powerBiApiUrl } from '../authConfig';
 import { useMsal } from '@azure/msal-react';
 import { styles } from "../styles/pbi.css";
-import { render } from "react-dom";
 
 const powerbi = new service.Service(factories.hpmFactory, factories.wpmpFactory, factories.routerFactory);
 
 export default function ReportEmbed({accessToken, embedUrl}) {
 
     let reportRef;
-
     const { instance, accounts } = useMsal();
+    const [isRendered, setIsRendered] = useState(true);
 
     const loginRequest = {
         scopes: scopeBase,
@@ -62,71 +60,84 @@ export default function ReportEmbed({accessToken, embedUrl}) {
     reportRef = React.createRef();
 
     const loading = (
-        <div
-            id="reportContainer"
-            ref={reportRef} >
-            Loading the report...
+        <div>
+            {isRendered && <p>Loading ...</p>}
+            <div
+                id="reportContainer"
+                ref={reportRef} >
+                Loading the report...
+            </div>
         </div>
     );
 
-    const backupEmbed = (
-        <iframe title="CE Executive Dashboard" width="1140" height="700" src="https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&autoAuth=true&ctid=e741d71c-c6b6-47b0-803c-0f3b32b07556" frameborder="0" allowFullScreen="true"></iframe>
-    )
-
     const renderReport = () => {
 
-        try {
-            let reportContainer = document.getElementById("reportContainer");
-            const report = powerbi.embed(reportContainer, embedConfig);
+        let reportContainer = document.getElementById("reportContainer");
+        const report = powerbi.embed(reportContainer, embedConfig);
 
-            // Clear any other loaded handler events
-            report.off("loaded");
+        // Clear any other loaded handler events
+        report.off("loaded");
 
-            // Triggers when a content schema is successfully loaded
-            report.on("loaded", function () {
-                console.log("Report load successful");
-            });
+        // Triggers when a content schema is successfully loaded
+        report.on("loaded", function () {
+            console.log("Report load successful");
+        });
 
-            // Clear any other rendered handler events
-            report.off("rendered");
+        // Clear any other rendered handler events
+        report.off("rendered");
 
-            // Triggers when a content is successfully embedded in UI
-            report.on("rendered", function () {
-                console.log("Report render successful");
-            });
+        // Triggers when a content is successfully embedded in UI
+        report.on("rendered", function () {
+            console.log("Report render successful");
+            setIsRendered(false);
+        });
 
-            report.off("dataSelected");
+        report.off("dataSelected");
 
-            // Triggers when a content is successfully embedded in UI
-            report.on("dataSelected", function (e) {
-                console.log(e);
+        // Triggers when a content is successfully embedded in UI
+        report.on("dataSelected", function (e) {
+            console.log(e);
 
-                let metricSelected = e.detail.dataPoints[0].values[1].value;
-                console.log(metricSelected);
-            });
-            
+            let metricSelected = e.detail.dataPoints[0].values[1].value;
+            console.log(metricSelected);
+        });
+        
 
-            // Clear any other error handler event
-            report.off("error");
+        // Clear any other error handler event
+        report.off("error");
 
-            // Below patch of code is for handling errors that occur during embedding
-            report.on("error", function (event) {
-                const errorMsg = event.detail;
+        // Below patch of code is for handling errors that occur during embedding
+        report.on("error", function (event) {
+            const errorMsg = event.detail;
 
-                // Use errorMsg variable to log error in any destination of choice
-                console.error(errorMsg);
-            });
+            // Use errorMsg variable to log error in any destination of choice
+            console.error(errorMsg);
+        });
 
-            return loading;
+        return loading;
+    }
 
-        } catch (err) {
-            console.log(err);
-        }
+    const bootstrap = () => {
+        console.log("Bootstrapping... ")
+        let reportContainer = document.getElementById("reportContainer");
+        powerbi.bootstrap(
+            reportContainer,
+            {
+                type: 'report',
+            }
+        )
     }
 
     useEffect(() => {
-        console.log("Rendering ...");
+
+        let reportContainer = document.getElementById("reportContainer");
         renderReport();
+
+        if (reportContainer.textContent === "Loading the report...") {
+            bootstrap();
+        } else { 
+            renderReport();
+        }
 
         // resize PBI iframe
         var iframes = document.querySelectorAll("iframe");
@@ -141,35 +152,5 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         }
     }, []);
 
-    try {
-        return (
-            loading
-        )
-    } catch(err) {
-        return backupEmbed
-    }
+    return (loading)
 }
-
-/*
-<PowerBIEmbed
-                    embedConfig = {embedConfig}
-                
-                    eventHandlers = { 
-                        new Map([
-                            ['loaded', function () {console.log('Report loaded');}],
-                            ['rendered', function () {console.log('Report rendered');}],
-                            ['error', function (event) {console.log(event.detail);}],
-                            ['dataSelected', function (event) {
-                                let data = event.detail;
-                                console.log("Event - dataSelected:\n", data);
-                            }]
-                        ])
-                    }
-                        
-                    cssClassName = { "report-style-class" }
-                
-                    getEmbeddedComponent = { (embeddedReport) => {
-                        window.report = embeddedReport;
-                    }}
-                />
-*/

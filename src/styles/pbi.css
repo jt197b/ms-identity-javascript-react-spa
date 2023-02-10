@@ -1,8 +1,7 @@
 
 #reportContainer {
-    min-height: 900px;
+    min-height: 800px;
     min-width: 900px;
-    max-width: 900px;
     max-width: 100%;
     display: block;
     background-color: white;
