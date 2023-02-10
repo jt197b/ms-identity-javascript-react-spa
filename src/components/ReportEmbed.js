@@ -19,18 +19,8 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         account: accounts[0]
     };
 
-    function resizeIFrameToFitContent(iFrame) {
-
-        var reportContainer = document.getElementById('reportContainer');
-        console.log(window.innerWidth);
-        console.log(reportContainer.clientWidth);
-
-        iFrame.width = window.innerWidth;
-        iFrame.height = reportContainer.clientHeight;
-    }
-
+    // silently acquires an access token on expiry
     const getNewAccessToken = () => {
-        // Silently acquires an access token which is then attached to a request for MS Graph data
         instance
             .acquireTokenSilent(loginRequest)
             .then((resp) => {
@@ -39,8 +29,14 @@ export default function ReportEmbed({accessToken, embedUrl}) {
             })
     }
     
+    function resizeIFrameToFitContent(iFrame) {
+        var reportContainer = document.getElementById('reportContainer');
+        iFrame.width = reportContainer.clientWidth;
+        iFrame.height = reportContainer.clientHeight;
+    }
+
     const [embedConfig, setEmbedConfig] = useState({
-		type: 'report',   // Supported types: report, dashboard, tile, visual and qna
+		type: 'report',   // supported types: report, dashboard, tile, visual and qna
 		id: reportId,
 		embedUrl: embedUrl,
 		accessToken: accessToken,
@@ -48,7 +44,6 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         eventHooks: {
             accessTokenProvider: getNewAccessToken
         },
-        pageView : "fitToWidth",
 		settings: {
 			panes: {
 				filters: {
@@ -74,76 +69,85 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         </div>
     );
 
+    const backupEmbed = (
+        <iframe title="CE Executive Dashboard" width="1140" height="700" src="https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&autoAuth=true&ctid=e741d71c-c6b6-47b0-803c-0f3b32b07556" frameborder="0" allowFullScreen="true"></iframe>
+    )
+
+    const renderReport = () => {
+
+        try {
+            let reportContainer = document.getElementById("reportContainer");
+            const report = powerbi.embed(reportContainer, embedConfig);
+
+            // Clear any other loaded handler events
+            report.off("loaded");
+
+            // Triggers when a content schema is successfully loaded
+            report.on("loaded", function () {
+                console.log("Report load successful");
+            });
+
+            // Clear any other rendered handler events
+            report.off("rendered");
+
+            // Triggers when a content is successfully embedded in UI
+            report.on("rendered", function () {
+                console.log("Report render successful");
+            });
+
+            report.off("dataSelected");
+
+            // Triggers when a content is successfully embedded in UI
+            report.on("dataSelected", function (e) {
+                console.log(e);
+
+                let metricSelected = e.detail.dataPoints[0].values[1].value;
+                console.log(metricSelected);
+            });
+            
+
+            // Clear any other error handler event
+            report.off("error");
+
+            // Below patch of code is for handling errors that occur during embedding
+            report.on("error", function (event) {
+                const errorMsg = event.detail;
+
+                // Use errorMsg variable to log error in any destination of choice
+                console.error(errorMsg);
+            });
+
+            return loading;
+
+        } catch (err) {
+            console.log(err);
+        }
+    }
 
     useEffect(() => {
         console.log("Rendering ...");
         renderReport();
+
         // resize PBI iframe
         var iframes = document.querySelectorAll("iframe");
 
-
         try {
             for (var i = 0; i < iframes.length; i++) {
-                console.log(iframes[i]);
                 resizeIFrameToFitContent(iframes[i]);
                 iframes[i].attributes.removeNamedItem("style");
             }
         } catch(err) {
             console.log(err);
         }
-
     }, []);
 
-    const renderReport = () => {
-
-        let reportContainer = document.getElementById("reportContainer");
-        console.log(reportContainer);
-        const report = powerbi.embed(reportContainer, embedConfig);
-
-        // Clear any other loaded handler events
-        report.off("loaded");
-
-        // Triggers when a content schema is successfully loaded
-        report.on("loaded", function () {
-            console.log("Report load successful");
-        });
-
-        // Clear any other rendered handler events
-        report.off("rendered");
-
-        // Triggers when a content is successfully embedded in UI
-        report.on("rendered", function () {
-            console.log("Report render successful");
-        });
-
-        report.off("dataSelected");
-
-        // Triggers when a content is successfully embedded in UI
-        report.on("dataSelected", function (e) {
-            console.log(e);
-
-            let metricSelected = e.detail.dataPoints[0].values[1].value;
-            console.log(metricSelected);
-        });
-        
-
-        // Clear any other error handler event
-        report.off("error");
-
-        // Below patch of code is for handling errors that occur during embedding
-        report.on("error", function (event) {
-            const errorMsg = event.detail;
-
-            // Use errorMsg variable to log error in any destination of choice
-            console.error(errorMsg);
-        });
-
-        return loading;
+    try {
+        return (
+            loading
+        )
+    } catch(err) {
+        return backupEmbed
     }
-
-    return (
-        loading
-    )
 }
 
 /*

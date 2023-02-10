@@ -8,17 +8,13 @@ import { useIsAuthenticated } from "@azure/msal-react";
 import { useEffect } from 'react';
 import ReportEmbed from './components/ReportEmbed';
 
-/**
- * Renders information about the signed-in user or a button to retrieve data about the user
- */
-const ProfileContent = () => {
+const PbiContent = () => {
+
     const { instance, accounts } = useMsal();
-    const reportRef = useRef(null);
-    const [error, setError] = useState("");
 
     // msal
-    const [accessToken, setAccessToken] = useState(null);
-    const isAuthenticated = useIsAuthenticated(false);
+    const [accessToken, setAccessToken] = useState(localStorage.getItem("msalToken") ? localStorage.getItem("msalToken") : null);
+    const [authFailed, setAuthFailed] = useState(false);
 
     // pbi
     const [embedUrl, setEmbedUrl] = useState("https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&groupId=a81e25a2-2ee6-40bb-a4ac-9a2cb4538f01&w=2");
@@ -30,12 +26,11 @@ const ProfileContent = () => {
 
     function authenticate() {
 
-        console.log(accounts);
-    
-        // Silently acquires an access token which is then attached to a request for MS Graph data
+        // silently acquires an access token
         instance
             .acquireTokenSilent(loginRequest)
             .then((resp) => {
+                localStorage.setItem("msalToken", resp.accessToken);
                 setAccessToken(resp.accessToken);
                 return resp.accessToken;
                 //let reportData = getEmbedUrl();
@@ -93,58 +88,88 @@ const ProfileContent = () => {
     }
 
     useEffect(() => {
-        console.log(accessToken);
-        console.log(embedUrl);
-    },[accessToken]);
+        try {
+            authenticate();
+            //console.log(embedUrl);
+            //console.log(accessToken);
+            
+        } catch (err) {
+            console.log(err);
+            console.log("Auth failed. Rendering backup embed... ");
+            setAuthFailed(true);
+        }
+    }, [accessToken, authFailed]);
 
     return (
         <>
             <h5 className="card-title">Welcome {accounts[0].name}</h5>
-            {!accessToken || !embedUrl ? (
-                <div>
-                    <Button variant="secondary" onClick={authenticate}>
-                        Get Access and Embed Token
-                    </Button>
-                   
-                </div>
-            ) : (
+            {
+                (accessToken && !authFailed) ?
                 <div>
                     <ReportEmbed
                         accessToken={accessToken}
                         embedUrl={embedUrl}
                     />
                 </div>
-            )}
+                :
+                <div>
+                    <Button variant="secondary" onClick={authenticate}>
+                        Retry Connection
+                    </Button>
+                    <p> Report loaded successfully but currently cannot connect to MyDashboard. </p>
+                    <iframe
+                        title="CE Executive Dashboard" width="1140" height="700"
+                        src="https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&autoAuth=true&ctid=e741d71c-c6b6-47b0-803c-0f3b32b07556" frameborder="0" allowFullScreen="true">
+                    </iframe>
+                </div>
+            }
         </>
     );
 };
 
-/**
- * If a user is authenticated the ProfileContent component above is rendered. Otherwise a message indicating a user is not authenticated is rendered.
- */
-const MainContent = () => {
-    return (
-        <div className="App">
-            <AuthenticatedTemplate>
-                <ProfileContent />
-            </AuthenticatedTemplate>
 
-            <UnauthenticatedTemplate>
-                <h5 className="card-title">Please sign-in to see your profile information.</h5>
-            </UnauthenticatedTemplate>
-        </div>
-    );
-};
-
+//if a user is authenticated the pbiContent component above is rendered. Otherwise a message indicating a user is not authenticated is rendered.
 export default function App() {
 
+    const { instance, inProgress  } = useMsal();
+    const isAuthenticated = useIsAuthenticated();
+
+    const handleLogin = () => {
+        instance.loginRedirect(scopeBase).catch(e => {
+            console.log(e);
+        });
+    }
+
     useEffect(() => {
-        console.log("loading")
-    },[]);
+
+        console.log(isAuthenticated);
+
+        if (!isAuthenticated) {
+            console.log("Logging you in");
+            handleLogin();
+        }
+        
+    }, [isAuthenticated]);
 
     return (
         <PageLayout>
-            <MainContent />
+
+            <div className="App">
+                <AuthenticatedTemplate>
+                    <PbiContent />
+                </AuthenticatedTemplate>
+
+                <UnauthenticatedTemplate>
+                    <h5 className="card-title">Signing you in... </h5>
+                    {/*
+                    <iframe
+                        title="CE Executive Dashboard" width="1140" height="700"
+                        src="https://app.powerbi.com/reportEmbed?reportId=10cb3f4c-3c9c-4d45-a18f-b40a21da4bc0&autoAuth=true&ctid=e741d71c-c6b6-47b0-803c-0f3b32b07556" frameborder="0" allowFullScreen="true">
+                    </iframe>
+                    */}
+                </UnauthenticatedTemplate>
+            </div>
+
         </PageLayout>
     );
 }
