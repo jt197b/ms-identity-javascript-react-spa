@@ -65,7 +65,7 @@ export default function ReportEmbed({accessToken, embedUrl}) {
             <div
                 id="reportContainer"
                 ref={reportRef} >
-                Loading the report...
+                Loading ...
             </div>
         </div>
     );
@@ -133,7 +133,7 @@ export default function ReportEmbed({accessToken, embedUrl}) {
         let reportContainer = document.getElementById("reportContainer");
         renderReport();
 
-        if (reportContainer.textContent === "Loading the report...") {
+        if (reportContainer.textContent === "Loading ...") {
             bootstrap();
         } else { 
             renderReport();
